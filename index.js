@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from "express";
 import { verifySignature } from "./middlewares/verifySignature.js";
 import { deploy } from "./utils/deploy.js";
