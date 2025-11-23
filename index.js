@@ -8,6 +8,15 @@ const PORT = process.env.PORT;
 
 app.use(express.json());
 
+app.get("/health", (_, res) => {
+  res.status(200).json({
+    status: "OK",
+    success: true,
+    message: "Server is healthy",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
   res.status(200).send("OK");
   const commits = req.body.commits;
@@ -27,10 +36,16 @@ app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
     for (const file of files) {
       if (file.startsWith("Client/")) clientChanged = true;
       if (file.startsWith("Server/")) serverChanged = true;
-      if (file === "Client/package.json" || file === "Client/package-lock.json") {
+      if (
+        file === "Client/package.json" ||
+        file === "Client/package-lock.json"
+      ) {
         clientDepsChanged = true;
       }
-      if (file === "Server/package.json" || file === "Server/package-lock.json") {
+      if (
+        file === "Server/package.json" ||
+        file === "Server/package-lock.json"
+      ) {
         serverDepsChanged = true;
       }
     }
