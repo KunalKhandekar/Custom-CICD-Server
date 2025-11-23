@@ -1,6 +1,7 @@
 import express from "express";
 import { verifySignature } from "./middlewares/verifySignature.js";
-import { executeScript } from "./utils/executeScript.js";
+import { deploy } from "./utils/deploy.js";
+import chalk from "chalk";
 
 const app = express();
 const PORT = process.env.PORT;
@@ -26,17 +27,16 @@ app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
   }
 
   if (!clientChanged && !serverChanged) {
-    console.log("No deployable changes detected.");
+    console.log(chalk.gray("No deployable changes detected."));
+    return;
   }
 
   if (clientChanged) {
-    console.log("Client changed → Deploying frontend...");
-    executeScript("deploy-client.sh");
+    await deploy("client", "deploy-client.sh");
   }
 
   if (serverChanged) {
-    console.log("Server changed → Deploying backend...");
-    executeScript("deploy-server.sh");
+    await deploy("server", "deploy-server.sh");
   }
 });
 
