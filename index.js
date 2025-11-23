@@ -11,6 +11,9 @@ app.use(express.json());
 app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
   res.status(200).send("OK");
   const commits = req.body.commits;
+  const commitMessage =
+    req.body.head_commit?.message || "No commit message found";
+  const commitAuthor = req.body.head_commit?.author?.name || "Unknown";
 
   let clientChanged = false;
   let serverChanged = false;
@@ -32,11 +35,11 @@ app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
   }
 
   if (clientChanged) {
-    await deploy("client", "deploy-client.sh");
+    await deploy("client", "deploy-client.sh", { commitMessage, commitAuthor });
   }
 
   if (serverChanged) {
-    await deploy("server", "deploy-server.sh");
+    await deploy("server", "deploy-server.sh", { commitMessage, commitAuthor });
   }
 });
 

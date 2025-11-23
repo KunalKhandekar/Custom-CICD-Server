@@ -1,3 +1,3 @@
 set -e
 
-echo "Triggered Deployment"
+eco "Triggered Deployment"
