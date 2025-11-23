@@ -6,6 +6,7 @@ import { notifyOnError, notifyOnSuccess } from "./notify.js";
 export const deploy = async (
   service,
   script,
+  needInstall,
   { commitMessage, commitAuthor }
 ) => {
   console.log(
@@ -17,7 +18,7 @@ export const deploy = async (
   );
 
   try {
-    const { success } = await executeScript(script, [], logStream(service));
+    const { success } = await executeScript(script, [needInstall], logStream(service));
 
     if (success) {
       console.log(chalk.green.bold("✓ Deployment completed!\n"));
