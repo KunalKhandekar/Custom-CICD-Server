@@ -1,0 +1,17 @@
+# ====================
+# Deployment Config
+# ====================
+S3_BUCKET=
+CF_DISTRIBUTION_ID=
+
+# paths
+CLIENT_PROJECT_DIR=
+SERVER_PROJECT_DIR=
+
+# ====================
+# CICD Server Config
+# ====================
+PORT=5001
+GITHUB_SECRET=
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
