@@ -145,8 +145,7 @@ In repo Settings → Webhooks:
 ### Logs
 | Description | Image |
 |-------------|-------|
-| Webhook received | ![Webhook](assets/log-webhook.png) |
 | Client build | ![Client Build](assets/log-client-build.png) |
 | Server reload | ![Server Reload](assets/log-server-reload.png) |
-| No changes | ![No Changes](assets/log-no-changes.png) |
+ Failure | ![Failure](assets/log-failure.png) |
 
