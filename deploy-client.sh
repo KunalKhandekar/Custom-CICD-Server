@@ -13,6 +13,11 @@ DIST_DIR="$PROJECT_DIR/dist"
 echo "Navigating to client directory..."
 cd "$PROJECT_DIR"
 
+# Step 0 — Pull latest changes
+echo "Pulling latest server changes from Git..."
+git pull origin main
+echo "Git pull completed."
+
 # Step 1 — Install dependencies (if needed)
 if [ "$NEED_INSTALL" = "true" ]; then
   echo "Installing client dependencies (npm ci)..."
