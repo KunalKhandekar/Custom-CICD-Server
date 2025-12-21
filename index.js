@@ -1,14 +1,37 @@
-import 'dotenv/config'
+/**
+ * Node modules
+ */
+import "dotenv/config";
 import express from "express";
+
+/**
+ * Custom modules
+ */
 import { verifySignature } from "./middlewares/verifySignature.js";
-import { deploy } from "./utils/deploy.js";
-import chalk from "chalk";
+import { processDeployment } from "./services/deploy_service.js";
+import { syncRepo } from "./services/git_services.js";
+import { sendTelegramAlert } from "./services/telegram_service.js";
+import { setCommitStatus } from "./services/github_status_service.js";
+
+/**
+ * Configurations
+ */
+import config from "./config/cicd_config.json" with { type: "json" };
+
+/**
+ * In-memory store for runs
+*/
+import { runs } from "./store/runs.js";
+import { CICDError } from "./utils/CICDError.js";
 
 const app = express();
 const PORT = process.env.PORT;
 
 app.use(express.json());
 
+/**
+ * Health Check endpoint
+ */
 app.get("/health", (_, res) => {
   res.status(200).json({
     status: "OK",
@@ -18,60 +41,105 @@ app.get("/health", (_, res) => {
   });
 });
 
-app.post("/webhook/tigger-deployment", verifySignature, async (req, res) => {
+/**
+ * GitHub Webhook endpoint
+ */
+app.post("/webhook/github", verifySignature, async (req, res) => {
   res.status(200).send("OK");
-  const commits = req.body.commits;
-  const commitMessage =
-    req.body.head_commit?.message || "No commit message found";
-  const commitAuthor = req.body.head_commit?.author?.name || "Unknown";
+  const webhookBody = req.body || {};
+  const repo = webhookBody?.repository?.full_name;
+  const branch = webhookBody?.ref?.replace("refs/heads/", "");
+  const commits = webhookBody?.commits || [];
+  const commitSha = webhookBody?.after;
 
-  let clientChanged = false;
-  let serverChanged = false;
+  // Find the matching project configuration
+  const project = config.projects.find(
+    (p) => p.repository === repo && p.branch === branch
+  );
 
-  let clientDepsChanged = false;
-  let serverDepsChanged = false;
+  if (!project || !commitSha) return;
 
-  for (const commit of commits) {
-    const files = [...commit.added, ...commit.modified, ...commit.removed];
+  const target_url = `${process.env.SERVER_URL}/runs/${commitSha}`;
 
-    for (const file of files) {
-      if (file.startsWith("Client/")) clientChanged = true;
-      if (file.startsWith("Server/")) serverChanged = true;
-      if (
-        file === "Client/package.json" ||
-        file === "Client/package-lock.json"
-      ) {
-        clientDepsChanged = true;
-      }
-      if (
-        file === "Server/package.json" ||
-        file === "Server/package-lock.json"
-      ) {
-        serverDepsChanged = true;
-      }
-    }
+  runs.set(commitSha, {
+    project: project.name,
+    repository: repo,
+    branch, 
+    commitSha,
+    status: "pending",
+    startedAt: new Date().toISOString(),
+    commits,
+  });
+
+  try {
+    // Set status pending when the pipeline starts.
+    await setCommitStatus({
+      repo,
+      sha: commitSha,
+      state: "pending",
+      description: "Deployment in progress",
+      targetUrl: target_url,
+    });
+
+    // Sync the repository before deployment
+    await syncRepo(project, webhookBody?.repository?.clone_url);
+
+    // Process the deployment for the project
+    await processDeployment(project, commits, {
+      commitMessage: webhookBody.head_commit?.message,
+      commitAuthor: webhookBody.head_commit?.author?.name,
+    });
+
+    // Update run status
+    runs.get(commitSha).status = "success";
+    runs.get(commitSha).finishedAt = new Date().toISOString();
+
+    // Set status success when the pipeline completes.
+    await setCommitStatus({
+      repo,
+      sha: commitSha,
+      state: "success",
+      description: "CI/CD pipeline completed successfully",
+      targetUrl: target_url,
+    });
+
+  } catch (error) {
+    console.error("Deployment failed:", error);
+
+    // Update run status
+    runs.get(commitSha).status = "failure";
+    runs.get(commitSha).finishedAt = new Date().toISOString();
+    runs.get(commitSha).error = error.message;
+
+    // Set status failure when the pipeline fails.
+    await setCommitStatus({
+      repo,
+      sha: commitSha,
+      state: "failure",
+      description: "CI/CD pipeline failed",
+      targetUrl: target_url,
+    });
   }
+});
 
-  if (!clientChanged && !serverChanged) {
-    console.log(chalk.gray("No deployable changes detected."));
-    return;
-  }
+/**
+ * Get Run Details endpoint
+ *  Returns details of a specific run based on commit SHA
+ */
+app.get("/runs/:commitSha", (req, res) => {
+  const run = runs.get(req.params.commitSha);
 
-  if (clientChanged) {
-    const needInstall = clientDepsChanged ? "true" : "false";
-    await deploy("client", "deploy-client.sh", needInstall, {
-      commitMessage,
-      commitAuthor,
+  if (!run) {
+    return res.status(404).json({
+      success: false,
+      message: "Run not found",
     });
   }
 
-  if (serverChanged) {
-    const needInstall = serverDepsChanged ? "true" : "false";
-    await deploy("server", "deploy-server.sh", needInstall, {
-      commitMessage,
-      commitAuthor,
-    });
-  }
+  res.status(200).json({
+    success: true,
+    ...run,
+  });
 });
 
 app.listen(PORT, () => console.log(`CI/CD Server is running on PORT ${PORT}`));
