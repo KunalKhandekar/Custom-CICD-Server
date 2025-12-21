@@ -20,7 +20,7 @@ import config from "./config/cicd_config.json" with { type: "json" };
 
 /**
  * In-memory store for runs
-*/
+ */
 import { runs } from "./store/runs.js";
 import { CICDError } from "./utils/CICDError.js";
 
@@ -64,7 +64,7 @@ app.post("/webhook/github", verifySignature, async (req, res) => {
   runs.set(commitSha, {
     project: project.name,
     repository: repo,
-    branch, 
+    branch,
     commitSha,
     status: "pending",
     startedAt: new Date().toISOString(),
@@ -102,7 +102,6 @@ app.post("/webhook/github", verifySignature, async (req, res) => {
       description: "CI/CD pipeline completed successfully",
       targetUrl: target_url,
     });
-
   } catch (error) {
     console.error("Deployment failed:", error);
 
